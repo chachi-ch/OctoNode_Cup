@@ -42,7 +42,7 @@ jobs:
 
       - name: Decrypt submission
         env:
-          SUBMISSION_PRIVATE_KEY: ${{ secrets.SUBMISSION_PRIVATE_KEY }}
+          SUBMISSION_PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
         run: |
           python encryption/decrypt.py "${{ steps.file.outputs.file }}"
 
