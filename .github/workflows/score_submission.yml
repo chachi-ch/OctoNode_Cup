@@ -13,12 +13,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout main
+      # Checkout the PR branch (not forcing main)
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: main
           fetch-depth: 0
 
+      # Checkout private evaluation repo
       - name: Checkout private evaluation repo
         uses: actions/checkout@v4
         with:
@@ -26,26 +27,40 @@ jobs:
           token: ${{ secrets.PRIVATE_REPO_TOKEN }}
           path: private_eval
 
+      # Setup Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
+      # Install dependencies
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      # Find submission file
       - name: Get submission file
         id: file
         run: |
           FILE=$(find submissions -name "*.enc" | head -n 1)
           echo "file=$FILE" >> $GITHUB_OUTPUT
 
+      # Debug: confirm the submission file exists
+      - name: Debug submission file
+        run: |
+          echo "Submission file: ${{ steps.file.outputs.file }}"
+
+      # Decrypt submission safely
       - name: Decrypt submission
         env:
           SUBMISSION_PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
         run: |
+          if [ -z "${{ steps.file.outputs.file }}" ]; then
+            echo "No submission file found! Exiting."
+            exit 1
+          fi
           python encryption/decrypt.py "${{ steps.file.outputs.file }}"
 
+      # Evaluate submission
       - name: Evaluate submission
         id: eval
         run: |
@@ -58,10 +73,12 @@ jobs:
 
           echo "score=$SCORE" >> $GITHUB_OUTPUT
 
+      # Append to leaderboard
       - name: Append to leaderboard
         run: |
           echo "${{ github.actor }},${{ steps.eval.outputs.score }},$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> docs/leaderboard.csv
 
+      # Commit leaderboard
       - name: Commit leaderboard
         run: |
           git config user.name "github-actions[bot]"
